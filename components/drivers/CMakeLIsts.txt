@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "comm/wifi/wifi_driver_abstraction.c"
+        "comm/mqtt/mqtt_client_abstraction.c"
+
+    INCLUDE_DIRS
+        "comm/wifi"
+        "comm/mqtt"
+    
+    REQUIRES
+        esp_netif
+        esp_wifi
+        mqtt
+)

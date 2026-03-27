@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "C:/engRel/rocket/rocket_model/components/core",
+    "idf.currentSetup": "C:/Espressif/frameworks/esp-idf-v5.4.2/",
+    "idf.flashType": "UART",
+    "idf.portWin": "COM8"
+}

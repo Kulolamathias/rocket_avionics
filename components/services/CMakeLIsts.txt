@@ -1,0 +1,24 @@
+idf_component_register(
+    SRCS
+        "common/service_manager.c"
+
+        "timer/timer_service.c"
+
+        "connectivity/wifi/wifi_service.c"
+        "connectivity/mqtt/mqtt_service.c"
+        "connectivity/mqtt/mqtt_topic.c"
+
+        "logging/logging_service.c"
+
+    INCLUDE_DIRS
+        "common"
+        "timer"
+        "connectivity/wifi"
+        "connectivity/mqtt"
+        "logging"
+    REQUIRES
+        core
+        drivers
+        esp_timer
+        efuse
+)
