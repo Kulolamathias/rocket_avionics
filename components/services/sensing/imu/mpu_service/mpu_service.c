@@ -26,7 +26,7 @@
 static const char *TAG = "MPU_SVC";
 
 /* IMU MQTT publish rate (Hz) */
-#define IMU_PUBLISH_RATE_HZ  20
+#define IMU_PUBLISH_RATE_HZ  10
 #define PUBLISH_DIVIDER (MPU_SAMPLE_RATE_HZ / IMU_PUBLISH_RATE_HZ)
 
 /* Ensuring divider is at least 1 */
@@ -118,6 +118,17 @@ static void mpu_service_task(void *arg)
     if (interval_ms < 1) interval_ms = 1;
     uint32_t interval_ticks = pdMS_TO_TICKS(interval_ms);
 
+    /* Moving average buffers */
+    static float roll_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float pitch_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float yaw_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float qw_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float qx_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float qy_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static float qz_buf[IMU_FILTER_WINDOW_SIZE] = {0};
+    static uint32_t buf_idx = 0;
+    static uint32_t buf_count = 0;
+
     while (s_running) {
         esp_err_t ret = mpu_driver_update(s_mpu);
         if (ret != ESP_OK) {
@@ -129,6 +140,7 @@ static void mpu_service_task(void *arg)
         mpu_orientation_t orient;
         mpu_driver_get_orientation(s_mpu, &orient);
 
+        /* Post raw orientation event to core (no averaging) */
         event_t ev_orient = {
             .id = EVENT_ORIENTATION_UPDATE,
             .timestamp_us = esp_timer_get_time(),
@@ -145,10 +157,42 @@ static void mpu_service_task(void *arg)
         ev_orient.data.orientation.validity.valid = orient.orientation_valid;
         service_post_event(&ev_orient);
 
+        /* Update moving average buffers */
+        roll_buf[buf_idx] = orient.roll_rad;
+        pitch_buf[buf_idx] = orient.pitch_rad;
+        yaw_buf[buf_idx] = orient.yaw_rad;
+        qw_buf[buf_idx] = orient.q_w;
+        qx_buf[buf_idx] = orient.q_x;
+        qy_buf[buf_idx] = orient.q_y;
+        qz_buf[buf_idx] = orient.q_z;
+        buf_idx = (buf_idx + 1) % IMU_FILTER_WINDOW_SIZE;
+        if (buf_count < IMU_FILTER_WINDOW_SIZE) buf_count++;
+
+        /* Publish averaged data at reduced rate */
         s_update_counter++;
         if (s_update_counter >= PUBLISH_DIVIDER) {
             s_update_counter = 0;
-            publish_imu_data(&orient);
+            if (buf_count > 0) {
+                mpu_orientation_t avg_orient = {0};
+                for (uint32_t i = 0; i < buf_count; i++) {
+                    avg_orient.roll_rad += roll_buf[i];
+                    avg_orient.pitch_rad += pitch_buf[i];
+                    avg_orient.yaw_rad += yaw_buf[i];
+                    avg_orient.q_w += qw_buf[i];
+                    avg_orient.q_x += qx_buf[i];
+                    avg_orient.q_y += qy_buf[i];
+                    avg_orient.q_z += qz_buf[i];
+                }
+                avg_orient.roll_rad /= buf_count;
+                avg_orient.pitch_rad /= buf_count;
+                avg_orient.yaw_rad /= buf_count;
+                avg_orient.q_w /= buf_count;
+                avg_orient.q_x /= buf_count;
+                avg_orient.q_y /= buf_count;
+                avg_orient.q_z /= buf_count;
+                avg_orient.orientation_valid = true;
+                publish_imu_data(&avg_orient);
+            }
         }
 
         vTaskDelay(interval_ticks);
