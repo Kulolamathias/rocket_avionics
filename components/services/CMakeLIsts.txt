@@ -2,7 +2,7 @@ idf_component_register(
     SRCS
         "common/service_manager.c"
 
-        "timer/timer_service.c"
+        "sensing/imu/mpu_service/mpu_service.c"
 
         "connectivity/wifi/wifi_service.c"
         "connectivity/mqtt/mqtt_service.c"
@@ -12,13 +12,18 @@ idf_component_register(
 
     INCLUDE_DIRS
         "common"
-        "timer"
+        
+        "sensing/imu/mpu_service"
+
         "connectivity/wifi"
         "connectivity/mqtt"
+
         "logging"
+
     REQUIRES
         core
         drivers
         esp_timer
         efuse
+        json
 )

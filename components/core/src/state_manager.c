@@ -172,6 +172,20 @@ static void prepare_log_mqtt_message(const system_context_t *ctx,
              (const char *)msg->payload);
 }
 
+/* Prepare log message from ultrasonic data */
+static void prepare_log_ultrasonic(const system_context_t *ctx,
+                                   const event_t *event,
+                                   void *params_out)
+{
+    (void)ctx;
+    log_message_params_t *p = (log_message_params_t *)params_out;
+    p->level = 1; /* Info level */
+    const ultrasonic_data_t *data = &event->data.ultrasonic;
+    snprintf(p->message, sizeof(p->message),
+             "Ultrasonic: distance=%lu cm, fill=%u%%",
+             data->distance_cm, data->fill_percent);
+}
+
 
 /* ============================================================
  * TRANSITION TABLE – SINGLE SOURCE OF TRUTH
@@ -305,7 +319,30 @@ static const state_transition_rule_t g_transition_table[] =
             },
             .count = 1
         }
-    }
+    },
+        /* ANY STATE → ANY STATE (trigger ultrasonic read on periodic timer) */
+    {
+        .current_state = SYSTEM_STATE_ANY,
+        .event_id = EVENT_PERIODIC_TIMER_EXPIRED,
+        .condition = NULL,
+        .next_state = SYSTEM_STATE_ANY,
+        .command_batch = {
+            .commands = { { COMMAND_READ_ULTRASONIC, NULL } },
+            .count = 1
+        }
+    },
+
+    /* ANY STATE → ANY STATE (log ultrasonic data) */
+    {
+        .current_state = SYSTEM_STATE_ANY,
+        .event_id = EVENT_ULTRASONIC_DATA,
+        .condition = NULL,
+        .next_state = SYSTEM_STATE_ANY,
+        .command_batch = {
+            .commands = { { COMMAND_LOG_MESSAGE, prepare_log_ultrasonic } },
+            .count = 1
+        }
+    },
 };
 
 #define TRANSITION_TABLE_SIZE (sizeof(g_transition_table) / sizeof(g_transition_table[0]))

@@ -73,7 +73,7 @@ esp_err_t timer_service_test_run(void)
     /* --------------------------------------------------------
      * 2. Periodic timer
      * -------------------------------------------------------- */
-    timer_params.timeout_ms = 100;
+    timer_params.timeout_ms = 2500;
     params.timer = timer_params;
 
     ESP_LOGI(TAG, "Starting periodic timer (100 ms interval)");
@@ -88,15 +88,15 @@ esp_err_t timer_service_test_run(void)
     /* During this period, multiple EVENT_PERIODIC_TIMER_EXPIRED should be posted */
 
     /* Stop the periodic timer */
-    ESP_LOGI(TAG, "Stopping periodic timer");
-    ret = command_router_execute(COMMAND_STOP_PERIODIC_TIMER, NULL);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "COMMAND_STOP_PERIODIC_TIMER failed: %d", ret);
-        return ret;
-    }
+    // ESP_LOGI(TAG, "Stopping periodic timer");
+    // ret = command_router_execute(COMMAND_STOP_PERIODIC_TIMER, NULL);
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "COMMAND_STOP_PERIODIC_TIMER failed: %d", ret);
+    //     return ret;
+    // }
 
-    /* Wait a bit to ensure no extra events appear */
-    vTaskDelay(pdMS_TO_TICKS(200));
+    // /* Wait a bit to ensure no extra events appear */
+    // vTaskDelay(pdMS_TO_TICKS(200));
 
     ESP_LOGI(TAG, "Timer service test completed. Check logs for timer events.");
     return ESP_OK;

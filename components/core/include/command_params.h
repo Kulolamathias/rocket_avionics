@@ -202,6 +202,7 @@ typedef union
     cmd_subscribe_mqtt_params_t     subscribe_mqtt;
     cmd_unsubscribe_mqtt_params_t   unsubscribe_mqtt;
     uint32_t                        status_value;      /**< Generic status/value field for simple commands */
+    uint32_t                        ultrasonic_interval_ms; /**< For COMMAND_START_ULTRASONIC_READING (optional) */
     log_message_params_t log_message;   /**< For COMMAND_LOG_MESSAGE */
 } command_param_union_t;
 

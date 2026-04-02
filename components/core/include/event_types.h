@@ -116,6 +116,9 @@ typedef enum
     EVENT_BATTERY_VOLTAGE_UPDATE,       /**< Battery voltage (V) */
     EVENT_CURRENT_UPDATE,               /**< Current consumption (A) */
 
+    /* Ultrasonic sensor event */
+    EVENT_ULTRASONIC_DATA,          /**< Ultrasonic measurement (payload: ultrasonic_data_t) */
+
     /* --------------------------------------------------------
      * Fault / anomaly events
      * -------------------------------------------------------- */
@@ -286,6 +289,16 @@ typedef struct {
     bool retain;                    /**< Retain flag */
 } mqtt_message_t;
 
+/**
+ * @brief Ultrasonic measurement data.
+ */
+typedef struct {
+    uint32_t distance_cm;           /**< Measured distance in centimeters */
+    uint8_t fill_percent;           /**< Calculated fill percentage (0-100) */
+    data_validity_t validity;       /**< Validity flag */
+} ultrasonic_data_t;
+
+
 /* ============================================================
  * MAIN EVENT STRUCTURE (TAGGED UNION)
  * ============================================================ */
@@ -335,6 +348,8 @@ typedef struct
         mqtt_event_disconnected_t mqtt_disconnected;
         mqtt_event_connection_failed_t mqtt_connection_failed;
         mqtt_message_t mqtt_message;
+
+        ultrasonic_data_t ultrasonic;   /**< For EVENT_ULTRASONIC_DATA */
         
         /* Fault */
         sensor_failure_data_t sensor_failure;

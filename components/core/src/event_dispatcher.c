@@ -34,8 +34,8 @@
  * ============================================================ */
 
 #define EVENT_QUEUE_LENGTH     32
-#define DISPATCHER_STACK_SIZE  4096
-#define DISPATCHER_PRIORITY    5
+#define DISPATCHER_STACK_SIZE  8192
+#define DISPATCHER_PRIORITY    24
 
 /* ============================================================
  * INTERNAL STATE
@@ -109,13 +109,14 @@ esp_err_t event_dispatcher_start(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    BaseType_t ret = xTaskCreate(
+    BaseType_t ret = xTaskCreatePinnedToCore(
         event_dispatcher_task,
         "event_dispatcher",
         DISPATCHER_STACK_SIZE,
         NULL,
         DISPATCHER_PRIORITY,
-        &s_dispatcher_task
+        &s_dispatcher_task,
+        1
     );
 
     if (ret != pdPASS) {

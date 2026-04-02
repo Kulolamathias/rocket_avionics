@@ -24,6 +24,9 @@
 #include "esp_log.h"
 #include "command_params.h"
 #include "event_types.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 
 static const char *TAG = "wifi_service";
@@ -32,6 +35,13 @@ static const char *TAG = "wifi_service";
 #define WIFI_DEFAULT_MIN_RETRY_MS   1000
 #define WIFI_DEFAULT_MAX_RETRY_MS   60000
 #define WIFI_DEFAULT_MAX_ATTEMPTS   5
+
+#define WIFI_CONNECT_TIMEOUT_MS   10000
+
+
+/* Configuration (should be moved to Kconfig / menuconfig) */
+#define CONFIG_WIFI_SSID        "Mathias' Sxx U..."
+#define CONFIG_WIFI_PASSWORD    "1234567890223"
 
 /* Static service context */
 static struct wifi_service_context s_ctx = {0};
@@ -108,7 +118,7 @@ esp_err_t wifi_service_init(void)
     }
 
     /* Create service task */
-    BaseType_t ret = xTaskCreate(wifi_service_task, "wifi_svc", 4096, NULL, 5, &s_ctx.task);
+    BaseType_t ret = xTaskCreatePinnedToCore(wifi_service_task, "wifi_svc", 4096, NULL, 5, &s_ctx.task, 0);
     if (ret != pdPASS) {
         wifi_driver_stop();
         esp_timer_delete(s_ctx.retry_timer);
@@ -147,7 +157,25 @@ esp_err_t wifi_service_register_handlers(void)
 
 esp_err_t wifi_service_start(void)
 {
-    ESP_LOGI(TAG, "WiFi service started");
+    /* Initiate WiFi connection asynchronously */
+    esp_err_t ret;
+    cmd_connect_wifi_params_t wifi_conn = {
+        .ssid = CONFIG_WIFI_SSID,
+        .password = CONFIG_WIFI_PASSWORD,
+        .auth_mode = 0
+    };
+    command_param_union_t wifi_params;
+    memcpy(&wifi_params.connect_wifi, &wifi_conn, sizeof(cmd_connect_wifi_params_t));
+    ret = command_router_execute(COMMAND_CONNECT_WIFI, &wifi_params);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "COMMAND_CONNECT_WIFI failed: %d", ret);
+        return ret;
+    }
+    ESP_LOGI(TAG, "WiFi connection command sent. Waiting for connection...");
+    vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
+    ESP_LOGI(TAG, "Assuming WiFi connected (check logs).");
+
+    ESP_LOGI(TAG, "WiFi service started (connection in progress)");
     return ESP_OK;
 }
 
@@ -354,12 +382,22 @@ static void process_driver_event(const driver_event_msg_t *evt)
         case WIFI_DRIVER_EVENT_GOT_IP:
             if (s_ctx.state == WIFI_STATE_CONNECTED) {
                 emit_event(EVENT_WIFI_GOT_IP, (void *)&evt->data.ip_info);
+                /* Inform MQTT service that WiFi is now connected */
+                command_param_union_t mqtt_param;
+                mqtt_param.status_value = 1;
+                command_router_execute(COMMAND_MQTT_SET_WIFI_STATE, &mqtt_param);
             }
             break;
 
         case WIFI_DRIVER_EVENT_DISCONNECTED: {
+            /* Informing MQTT service that WiFi is disconnected */
+            command_param_union_t mqtt_param;
+            mqtt_param.status_value = 0;
+            command_router_execute(COMMAND_MQTT_SET_WIFI_STATE, &mqtt_param);
+            
             int reason = evt->data.disconnect_reason;
             wifi_event_disconnected_t disc_evt = { .reason = reason };
+            
             emit_event(EVENT_WIFI_DISCONNECTED, &disc_evt);
 
             if (s_ctx.user_disconnect) {
@@ -386,6 +424,7 @@ static void process_driver_event(const driver_event_msg_t *evt)
 
             start_reconnect_timer();
             set_state(WIFI_STATE_RECONNECT_WAIT);
+
             break;
         }
 

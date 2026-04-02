@@ -117,6 +117,11 @@ typedef enum
     COMMAND_STOP_RECORDING,         /**< Stop video recording */
     COMMAND_CAPTURE_IMAGE,          /**< Capture still image */
 
+    /* Ultrasonic sensor commands */
+    COMMAND_READ_ULTRASONIC,        /**< Single ultrasonic measurement */
+    COMMAND_START_ULTRASONIC_READING, /**< Start periodic readings */
+    COMMAND_STOP_ULTRASONIC_READING,  /**< Stop periodic readings */
+
     /* --------------------------------------------------------
      * Logging / storage
      * -------------------------------------------------------- */

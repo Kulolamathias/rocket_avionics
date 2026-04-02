@@ -3,6 +3,7 @@ idf_component_register(
         "src/core_self_test.c"
         "src/timer_service_test.c"
         "src/wifi_mqtt_test.c"
+        "src/ultrasonic_test.c"
     INCLUDE_DIRS 
         "include"
     REQUIRES 

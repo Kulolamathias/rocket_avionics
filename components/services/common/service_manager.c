@@ -27,7 +27,8 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
-#include "timer_service.h"
+#include "mpu_service.h"
+
 #include "mqtt_service.h"
 #include "wifi_service.h"
 #include "logging_service.h"
@@ -57,12 +58,6 @@ typedef struct {
  */
 static const service_entry_t g_services[] = {
     {
-        .name = "timer",
-        .init = timer_service_init,
-        .register_handlers = timer_service_register_handlers,
-        .start = timer_service_start
-    },
-    {
         .name = "wifi",
         .init = wifi_service_init,
         .register_handlers = wifi_service_register_handlers,
@@ -79,6 +74,12 @@ static const service_entry_t g_services[] = {
         .init = logging_service_init,
         .register_handlers = logging_service_register_handlers,
         .start = logging_service_start
+    },
+    {
+        .name = "mpu",
+        .init = mpu_service_init,
+        .register_handlers = mpu_service_register_handlers,
+        .start = mpu_service_start
     }
     // {
     //     .name = "telemetry",
