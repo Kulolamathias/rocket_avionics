@@ -36,6 +36,7 @@
 #include "system_state.h"
 #include "conditions.h"
 #include "esp_log.h"
+#include "cJSON.h"
 #include <string.h>
 
 static const char *TAG = "StateManager";
@@ -449,6 +450,37 @@ esp_err_t state_manager_process_event(const event_t *event)
         ESP_LOGI(TAG, "MQTT received: \n\t topic=%.*s, \n\t payload=%.*s",
                 (int)strlen(event->data.mqtt_message.topic), event->data.mqtt_message.topic,
                 (int)event->data.mqtt_message.payload_len, event->data.mqtt_message.payload);
+
+        /* --------------------------------------------------------
+        * Handle calibration commands via MQTT, IF ANY..
+        * -------------------------------------------------------- */
+        const system_context_t *ctx = system_context_get();
+        char expected_topic[128];
+        snprintf(expected_topic, sizeof(expected_topic), "rocket/%s/cmd/calibrate", ctx->mac_str);
+        if (strcmp(event->data.mqtt_message.topic, expected_topic) == 0) {
+            /* Parse JSON payload */
+            cJSON *root = cJSON_ParseWithLength((const char*)event->data.mqtt_message.payload,
+                                                event->data.mqtt_message.payload_len);
+            if (root) {
+                cJSON *sensor = cJSON_GetObjectItem(root, "sensor");
+                cJSON *action = cJSON_GetObjectItem(root, "action");
+                cJSON *mass_kg = cJSON_GetObjectItem(root, "mass_kg");
+                if (sensor && action && cJSON_IsString(sensor) && cJSON_IsString(action)) {
+                                        calibrate_params_t params;
+                    strlcpy(params.sensor_name, sensor->valuestring, sizeof(params.sensor_name));
+                    strlcpy(params.action, action->valuestring, sizeof(params.action));
+                    params.value = (mass_kg && cJSON_IsNumber(mass_kg)) ? (float)mass_kg->valuedouble : 0.0f;
+
+                    command_param_union_t cmd_params;
+                    memset(&cmd_params, 0, sizeof(cmd_params));
+                    memcpy(&cmd_params.calibrate, &params, sizeof(calibrate_params_t));
+                    command_router_execute(COMMAND_CALIBRATE_SENSOR, &cmd_params);
+                }
+                cJSON_Delete(root);
+            }
+            /* Consume the event (no further processing) */
+            return ESP_OK;
+        }
     }
 
     /* No transition matched – ignore event */

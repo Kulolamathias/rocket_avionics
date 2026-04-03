@@ -27,6 +27,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
+#include "loadcell_service.h"
 #include "mpu_service.h"
 
 #include "mqtt_service.h"
@@ -80,6 +81,12 @@ static const service_entry_t g_services[] = {
         .init = mpu_service_init,
         .register_handlers = mpu_service_register_handlers,
         .start = mpu_service_start
+    },
+    {
+        .name = "loadcell",
+        .init = loadcell_service_init,
+        .register_handlers = loadcell_service_register_handlers,
+        .start = loadcell_service_start
     }
     // {
     //     .name = "telemetry",

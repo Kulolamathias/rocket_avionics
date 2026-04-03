@@ -1,4 +1,4 @@
-#if 0
+#if 1
 
 
 
@@ -174,10 +174,7 @@ void app_main(void)
 
 
 
-
-
 #include <stdio.h>
-#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -186,10 +183,15 @@ void app_main(void)
 
 static const char *TAG = "LOADCELL_TEST";
 
+// Target sample rate (Hz) – the driver will read as fast as possible, but we try to maintain this rate
+#define TARGET_RATE_HZ 80
+// Log interval (seconds)
+#define LOG_INTERVAL_SEC 1
+
 void app_main(void)
 {
     loadcell_config_t cfg = {
-        .sample_rate_hz = 80,
+        .sample_rate_hz = TARGET_RATE_HZ,
         .filter_window_size = 10,
         .calibration = { .offset_raw = 0, .scale_newtons_per_count = 1.0f },
         .hw = { .sck_pin = 5, .dout_pin = 4 }
@@ -198,36 +200,49 @@ void app_main(void)
     loadcell_handle_t loadcell;
     ESP_ERROR_CHECK(loadcell_driver_create(&cfg, &loadcell));
 
-    ESP_LOGI(TAG, "Calibrating zero (remove weight)");
+    ESP_LOGI(TAG, "Zero calibration (remove weight)");
     ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 0.0f));
 
     ESP_LOGI(TAG, "Place 228g weight (2.2367 N) and wait 5 seconds");
     vTaskDelay(pdMS_TO_TICKS(5000));
     ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 2.2367f));
 
-    ESP_LOGI(TAG, "Reading at 80 Hz...");
-    int64_t last_print = esp_timer_get_time();
-    uint32_t count = 0;
+    ESP_LOGI(TAG, "Reading at max speed, logging every %d s", LOG_INTERVAL_SEC);
+
+    int64_t last_log = esp_timer_get_time();
+    uint32_t sample_count = 0;
+    float last_force = 0;
+
+    // Timing control for target rate
+    uint32_t interval_us = 1000000 / TARGET_RATE_HZ;
+    int64_t next_read = esp_timer_get_time();
 
     while (1) {
         float force;
         if (loadcell_driver_read_filtered(loadcell, &force) == ESP_OK) {
-            count++;
-            int64_t now = esp_timer_get_time();
-            if (now - last_print >= 10000) {
-                float rate = (float)count * 10000.0f / (now - last_print);
-                ESP_LOGI(TAG, "Rate: %.1f Hz, Force: %.3f N", rate, force);
-                count = 0;
-                last_print = now;
-            }
+            last_force = force;
+            sample_count++;
         }
-        vTaskDelay(pdMS_TO_TICKS(1)); // ~1ms, enough to achieve 80 Hz
+
+        int64_t now = esp_timer_get_time();
+        if (now - last_log >= LOG_INTERVAL_SEC * 1000000) {
+            float actual_rate = (float)sample_count * 1000000.0f / (now - last_log);
+            ESP_LOGI(TAG, "Actual rate: %.1f Hz, Force: %.3f N", actual_rate, last_force);
+            sample_count = 0;
+            last_log = now;
+        }
+
+        // Maintain target rate (if possible)
+        next_read += interval_us;
+        now = esp_timer_get_time();
+        if (next_read > now) {
+            vTaskDelay(pdMS_TO_TICKS((next_read - now) / 1000));
+        } else {
+            // Drift: reset to now + interval
+            next_read = now + interval_us;
+        }
     }
 }
-
-
-
-
 
 
 

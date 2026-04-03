@@ -91,6 +91,12 @@ typedef struct {
     uint32_t timeout_ms;            /**< Timer duration in milliseconds */
 } cmd_start_timer_params_t;
 
+typedef struct {
+    char sensor_name[16];       /**< "loadcell", "imu", etc. */
+    char action[16];            /**< "zero" or "scale" */
+    float value;                /**< For scale: known mass (kg) or force (N) */
+} calibrate_params_t;
+
 /* ============================================================
  * WiFi command parameters
  * ============================================================ */
@@ -191,6 +197,7 @@ typedef union
 {
     gimbal_orientation_params_t     gimbal_orientation;
     gimbal_angles_params_t          gimbal_angles;
+    calibrate_params_t              calibrate;
     telemetry_config_params_t       telemetry_config;
     logging_config_params_t         logging_config;
     cmd_start_timer_params_t        timer;

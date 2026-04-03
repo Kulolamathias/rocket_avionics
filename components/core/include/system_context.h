@@ -76,6 +76,7 @@ typedef struct
  */
 typedef struct
 {
+    char mac_str[13];           /**< Device MAC address as lowercase hex string (without separators) */
     /* Time */
     uint64_t timestamp_us;          /**< Timestamp of last context update */
 

@@ -31,6 +31,8 @@
 
 #include "system_context.h"
 #include "esp_log.h"
+#include "esp_efuse.h"
+#include "esp_mac.h"
 #include <string.h>
 
 static const char *TAG = "system_context";
@@ -56,6 +58,16 @@ void system_context_init(void)
     s_ctx.orientation_valid = false;
     s_ctx.gps_valid = false;
     s_ctx.battery_valid = false;
+
+    memset(&s_ctx, 0, sizeof(system_context_t));
+    /* ... existing validity flags ... */
+
+    /* Get MAC address */
+    uint8_t mac[6];
+    esp_efuse_mac_get_default(mac);
+    snprintf(s_ctx.mac_str, sizeof(s_ctx.mac_str), "%02x%02x%02x%02x%02x%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_LOGI(TAG, "\n\tAssigned mac_str: %s", s_ctx.mac_str);
 
     ESP_LOGI(TAG, "System context initialized");
 }

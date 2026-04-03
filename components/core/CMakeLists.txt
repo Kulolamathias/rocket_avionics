@@ -16,4 +16,5 @@ idf_component_register(
         esp_event
         services
         esp_netif
+        efuse
 )

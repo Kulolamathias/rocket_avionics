@@ -4,6 +4,10 @@
 
 
 
+/**
+ * @file loadcell_driver.h
+ * @brief Load Cell Driver – HX711 with high‑speed sampling.
+ */
 
 #ifndef LOADCELL_DRIVER_H
 #define LOADCELL_DRIVER_H
@@ -24,17 +28,25 @@ typedef struct {
 } loadcell_calibration_t;
 
 typedef struct {
-    uint32_t sample_rate_hz;        // not used in this version
-    uint32_t filter_window_size;    // moving average window
+    uint32_t sample_rate_hz;      // requested rate (max 80)
+    uint32_t filter_window_size;  // moving average window
     loadcell_calibration_t calibration;
     loadcell_hx711_config_t hw;
 } loadcell_config_t;
 
 esp_err_t loadcell_driver_create(const loadcell_config_t *cfg, loadcell_handle_t *out_handle);
-esp_err_t loadcell_driver_read(loadcell_handle_t handle, float *newtons);  // blocking
-esp_err_t loadcell_driver_read_filtered(loadcell_handle_t handle, float *newtons); // returns filtered value
+esp_err_t loadcell_driver_read(loadcell_handle_t handle, float *newtons);
+esp_err_t loadcell_driver_read_filtered(loadcell_handle_t handle, float *newtons);
 esp_err_t loadcell_driver_calibrate(loadcell_handle_t handle, float known_newtons);
 esp_err_t loadcell_driver_delete(loadcell_handle_t handle);
+
+/**
+ * @brief Set the scale factor (newtons per count) for calibration.
+ * @param handle Load cell instance.
+ * @param scale_newtons_per_count Scale factor.
+ * @return ESP_OK on success.
+ */
+esp_err_t loadcell_driver_set_scale(loadcell_handle_t handle, float scale_newtons_per_count);
 
 #endif
 

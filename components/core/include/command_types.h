@@ -18,7 +18,7 @@
  * - No data attached (parameters are in command_params.h)
  * - No logic or interpretation
  * - Grouped by functional domain for readability
- * - CMD_COUNT is always the last enumerator
+ * - COMMAND_COUNT is always the last enumerator
  *
  * =============================================================================
  * USAGE
@@ -101,6 +101,16 @@ typedef enum
     COMMAND_GPS_START,              /**< Start GPS module */
     COMMAND_GPS_STOP,               /**< Stop GPS module */
     COMMAND_GPS_GET_LAST_FIX,       /**< Get last GPS fix */
+
+    /* --------------------------------------------------------
+     * Load cell commands
+     * -------------------------------------------------------- */
+    COMMAND_LOADCELL_START_SAMPLING,    /*< Begin continuous sampling and publishing */
+    COMMAND_LOADCELL_STOP_SAMPLING,     /*< Stop sampling */
+    COMMAND_LOADCELL_CALIBRATE_ZERO,    /*< Calibrate zero point */
+    COMMAND_LOADCELL_CALIBRATE_SCALE,   /*< Calibrate scale */
+    COMMAND_LOADCELL_GET_LAST,          /*< Get last measured value */
+    COMMAND_CALIBRATE_SENSOR,           /*< Calibrate a sensor (params: calibrate_params_t) */
 
     /* --------------------------------------------------------
      * Timer services

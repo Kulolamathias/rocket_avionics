@@ -82,7 +82,12 @@ typedef enum
     EVENT_PRESSURE_UPDATE,              /**< Atmospheric pressure (Pa) */
     EVENT_TEMPERATURE_UPDATE,           /**< Temperature (°C) */
 
-        /* --------------------------------------------------------
+    /* --------------------------------------------------------
+     * Load cell (thrust measurement)
+     * -------------------------------------------------------- */
+    EVENT_LOADCELL_DATA,          /**< Load cell measurement (force in newtons) */
+
+    /* --------------------------------------------------------
      * WiFi events
      * -------------------------------------------------------- */
     EVENT_WIFI_CONNECTING,          /**< WiFi connection attempt started */
@@ -142,6 +147,10 @@ typedef struct
 /* ============================================================
  * EVENT PAYLOAD STRUCTURES
  * ============================================================ */
+
+typedef struct {
+    float force_newtons;
+} loadcell_data_t;
 
 /**
  * @brief Acceleration data (IMU)
@@ -329,6 +338,8 @@ typedef struct
         /* Environment */
         pressure_update_t pressure;
         temperature_update_t temperature;
+
+        loadcell_data_t loadcell;
 
         /* GPS */
         gps_data_t gps;

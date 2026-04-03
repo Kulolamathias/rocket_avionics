@@ -2,7 +2,8 @@ idf_component_register(
     SRCS
         "common/service_manager.c"
 
-        "sensing/imu/mpu_service/mpu_service.c"
+        "sensing/loadcell_service/loadcell_service.c"
+        "sensing/imu_service/mpu_service/mpu_service.c"
 
         "connectivity/wifi/wifi_service.c"
         "connectivity/mqtt/mqtt_service.c"
@@ -13,7 +14,8 @@ idf_component_register(
     INCLUDE_DIRS
         "common"
         
-        "sensing/imu/mpu_service"
+        "sensing/loadcell_service"
+        "sensing/imu_service/mpu_service"
 
         "connectivity/wifi"
         "connectivity/mqtt"

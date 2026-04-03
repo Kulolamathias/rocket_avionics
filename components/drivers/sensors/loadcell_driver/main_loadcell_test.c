@@ -3,80 +3,80 @@
 
 
 
-/**
- * @file main.c
- * @brief Standalone load cell driver test for HX711.
- */
-
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "loadcell_driver.h"
 
 static const char *TAG = "LOADCELL_TEST";
 
-/* Configuration – adjust to your wiring */
-#define LOADCELL_SAMPLE_RATE_HZ  80        /* HX711 max is 80 Hz */
-#define LOADCELL_FILTER_WINDOW   10        /* Moving average window */
-#define HX711_SCK_PIN            5
-#define HX711_DOUT_PIN           4
+// Target sample rate (Hz) – the driver will read as fast as possible, but we try to maintain this rate
+#define TARGET_RATE_HZ 80
+// Log interval (seconds)
+#define LOG_INTERVAL_SEC 1
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting HX711 load cell test");
-
     loadcell_config_t cfg = {
-        .adc_type = LOADCELL_ADC_HX711,
-        .sample_rate_hz = LOADCELL_SAMPLE_RATE_HZ,
-        .filter_window_size = LOADCELL_FILTER_WINDOW,
-        .calibration = { .offset_newtons = 0, .scale_newtons_per_count = 1.0f },
-        .hw.hx711 = { .sck_pin = HX711_SCK_PIN, .dout_pin = HX711_DOUT_PIN }
+        .sample_rate_hz = TARGET_RATE_HZ,
+        .filter_window_size = 10,
+        .calibration = { .offset_raw = 0, .scale_newtons_per_count = 1.0f },
+        .hw = { .sck_pin = 5, .dout_pin = 4 }
     };
 
     loadcell_handle_t loadcell;
-    esp_err_t ret = loadcell_driver_create(&cfg, &loadcell);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create driver: %d", ret);
-        return;
-    }
+    ESP_ERROR_CHECK(loadcell_driver_create(&cfg, &loadcell));
 
-    /* Calibrate with known weight (e.g., 1 kg = 9.81 N) */
-    ESP_LOGI(TAG, "Place a known weight (e.g., 1 kg) and press Enter...");
+    ESP_LOGI(TAG, "Zero calibration (remove weight)");
+    ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 0.0f));
+
+    ESP_LOGI(TAG, "Place 228g weight (2.2367 N) and wait 5 seconds");
     vTaskDelay(pdMS_TO_TICKS(5000));
-    ret = loadcell_driver_calibrate(loadcell, 9.81f);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Calibration failed: %d", ret);
-    } else {
-        ESP_LOGI(TAG, "Calibration done. Remove weight.");
-    }
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 2.2367f));
 
-    ret = loadcell_driver_start(loadcell);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start sampling: %d", ret);
-        loadcell_driver_delete(loadcell);
-        return;
-    }
+    ESP_LOGI(TAG, "Reading at max speed, logging every %d s", LOG_INTERVAL_SEC);
 
+    int64_t last_log = esp_timer_get_time();
     uint32_t sample_count = 0;
-    int64_t last_time = esp_timer_get_time();
-    float latest_force = 0;
+    float last_force = 0;
+
+    // Timing control for target rate
+    uint32_t interval_us = 1000000 / TARGET_RATE_HZ;
+    int64_t next_read = esp_timer_get_time();
 
     while (1) {
-        ret = loadcell_driver_get_latest(loadcell, &latest_force);
-        if (ret == ESP_OK) sample_count++;
+        float force;
+        if (loadcell_driver_read_filtered(loadcell, &force) == ESP_OK) {
+            last_force = force;
+            sample_count++;
+        }
 
         int64_t now = esp_timer_get_time();
-        if (now - last_time >= 1000000) {
-            float actual_rate = (float)sample_count * 1000000.0f / (now - last_time);
-            ESP_LOGI(TAG, "Rate: %.1f Hz, Force: %.3f N", actual_rate, latest_force);
+        if (now - last_log >= LOG_INTERVAL_SEC * 1000000) {
+            float actual_rate = (float)sample_count * 1000000.0f / (now - last_log);
+            ESP_LOGI(TAG, "Actual rate: %.1f Hz, Force: %.3f N", actual_rate, last_force);
             sample_count = 0;
-            last_time = now;
+            last_log = now;
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+
+        // Maintain target rate (if possible)
+        next_read += interval_us;
+        now = esp_timer_get_time();
+        if (next_read > now) {
+            vTaskDelay(pdMS_TO_TICKS((next_read - now) / 1000));
+        } else {
+            // Drift: reset to now + interval
+            next_read = now + interval_us;
+        }
     }
 }
+
+
+
+
+
 
 
 

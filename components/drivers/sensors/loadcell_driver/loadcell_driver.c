@@ -1,6 +1,13 @@
+/**
+ * @file loadcell_driver.c
+ * @brief HX711 driver with moving average and high‑speed polling.
+ */
+
 #include "loadcell_driver.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -18,12 +25,16 @@ struct loadcell_handle_t {
     float filtered_value;
 };
 
+/* Read raw 24‑bit value from HX711 (blocking, with timeout) */
 static esp_err_t read_hx711_raw(loadcell_handle_t handle, int32_t *raw_count)
 {
-    for (int retry = 0; retry < 3; retry++) {
+    for (int attempt = 0; attempt < 5; attempt++) {
         int64_t start = esp_timer_get_time();
+        /* Wait for DOUT to go low (data ready) with 50 ms timeout */
         while (gpio_get_level(handle->dout_pin) == 1) {
-            if ((esp_timer_get_time() - start) > 200000) break;
+            if ((esp_timer_get_time() - start) > 50000) {
+                break; // timeout, try again
+            }
             esp_rom_delay_us(10);
         }
         if (gpio_get_level(handle->dout_pin) == 0) {
@@ -43,10 +54,13 @@ static esp_err_t read_hx711_raw(loadcell_handle_t handle, int32_t *raw_count)
             *raw_count = value;
             return ESP_OK;
         }
+        /* Small delay before retry */
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
     return ESP_ERR_TIMEOUT;
 }
 
+/* Moving average filter */
 static void update_filter(loadcell_handle_t handle, float new_sample)
 {
     if (handle->filter_window_size <= 1) {
@@ -61,6 +75,7 @@ static void update_filter(loadcell_handle_t handle, float new_sample)
     handle->filtered_value = sum / handle->filter_count;
 }
 
+/* Public API */
 esp_err_t loadcell_driver_create(const loadcell_config_t *cfg, loadcell_handle_t *out_handle)
 {
     if (!cfg || !out_handle) return ESP_ERR_INVALID_ARG;
@@ -78,6 +93,7 @@ esp_err_t loadcell_driver_create(const loadcell_config_t *cfg, loadcell_handle_t
         memset(handle->filter_buffer, 0, sizeof(float) * handle->filter_window_size);
     }
 
+    // Configure GPIOs
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << handle->sck_pin),
         .mode = GPIO_MODE_OUTPUT,
@@ -93,8 +109,23 @@ esp_err_t loadcell_driver_create(const loadcell_config_t *cfg, loadcell_handle_t
     if (ret != ESP_OK) goto fail;
     gpio_set_level(handle->sck_pin, 0);
 
+    /* Reset HX711 by holding SCK high for >60 µs */
+    gpio_set_level(handle->sck_pin, 1);
+    esp_rom_delay_us(100);
+    gpio_set_level(handle->sck_pin, 0);
+    esp_rom_delay_us(100);
+    /* Flush any pending data by reading 24+1 pulses */
+    for (int i = 0; i < 25; i++) {
+        gpio_set_level(handle->sck_pin, 1);
+        esp_rom_delay_us(1);
+        gpio_set_level(handle->sck_pin, 0);
+        esp_rom_delay_us(1);
+    }
+    /* Clear the input buffer */
+    gpio_get_level(handle->dout_pin);
+
     *out_handle = handle;
-    ESP_LOGI(TAG, "Load cell driver created");
+    ESP_LOGI(TAG, "Load cell driver created (filter window=%lu)", handle->filter_window_size);
     return ESP_OK;
 
 fail:
@@ -141,6 +172,14 @@ esp_err_t loadcell_driver_calibrate(loadcell_handle_t handle, float known_newton
         handle->calibration.scale_newtons_per_count = known_newtons / (float)raw_diff;
         ESP_LOGI(TAG, "Scale calibration: raw_diff=%ld, scale=%.6f N/count", raw_diff, handle->calibration.scale_newtons_per_count);
     }
+    return ESP_OK;
+}
+
+esp_err_t loadcell_driver_set_scale(loadcell_handle_t handle, float scale_newtons_per_count)
+{
+    if (!handle) return ESP_ERR_INVALID_ARG;
+    handle->calibration.scale_newtons_per_count = scale_newtons_per_count;
+    ESP_LOGI(TAG, "Scale factor set to %.6f N/count", scale_newtons_per_count);
     return ESP_OK;
 }
 
