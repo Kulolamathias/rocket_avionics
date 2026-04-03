@@ -2,129 +2,41 @@
 
 
 
-/**
- * @file loadcell_driver.h
- * @brief Load Cell Driver – HX711, scalable for other ADCs.
- *
- * =============================================================================
- * ARCHITECTURAL ROLE
- * =============================================================================
- * This driver provides a handle‑based interface to a load cell connected
- * to an HX711 amplifier. It handles sampling, moving average filtering,
- * calibration, and continuous sampling via a dedicated FreeRTOS task.
- *
- * It contains NO business logic, NO command handling, and NO event posting.
- * =============================================================================
- */
+
+
 
 #ifndef LOADCELL_DRIVER_H
 #define LOADCELL_DRIVER_H
 
 #include "esp_err.h"
 #include "driver/gpio.h"
-#include <stdint.h>
-#include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** Opaque handle for a load cell instance. */
 typedef struct loadcell_handle_t *loadcell_handle_t;
 
-/** Configuration for HX711. */
 typedef struct {
-    gpio_num_t sck_pin;      /**< SCK (clock) pin */
-    gpio_num_t dout_pin;     /**< DOUT (data) pin */
+    gpio_num_t sck_pin;
+    gpio_num_t dout_pin;
 } loadcell_hx711_config_t;
 
-/** Calibration data. */
 typedef struct {
-    int32_t offset_raw;                 /**< Raw ADC count at zero load */
-    float scale_newtons_per_count;      /**< Conversion factor from ADC counts to newtons */
+    int32_t offset_raw;
+    float scale_newtons_per_count;
 } loadcell_calibration_t;
 
-/** Main configuration for a load cell. */
 typedef struct {
-    uint32_t sample_rate_hz;        /**< Desired sampling rate (Hz) – max 80 for HX711 */
-    uint32_t filter_window_size;    /**< Moving average window size (1 = no filtering) */
-    loadcell_calibration_t calibration; /**< Initial calibration (zero if unknown) */
-    loadcell_hx711_config_t hw;     /**< Hardware configuration */
+    uint32_t sample_rate_hz;        // not used in this version
+    uint32_t filter_window_size;    // moving average window
+    loadcell_calibration_t calibration;
+    loadcell_hx711_config_t hw;
 } loadcell_config_t;
 
-/**
- * @brief Create a load cell instance.
- *
- * @param cfg   Configuration structure.
- * @param out_handle Pointer to store the created handle.
- * @return ESP_OK on success, error code otherwise.
- */
 esp_err_t loadcell_driver_create(const loadcell_config_t *cfg, loadcell_handle_t *out_handle);
-
-/**
- * @brief Perform a single measurement (blocking, for calibration or one‑off).
- *
- * @param handle Load cell instance.
- * @param[out] newtons Force in newtons (calibrated using current calibration).
- * @return ESP_OK on success, error code otherwise.
- */
-esp_err_t loadcell_driver_measure_once(loadcell_handle_t handle, float *newtons);
-
-/**
- * @brief Start continuous sampling (non‑blocking).
- *
- * Creates a task that samples at the configured rate and applies filtering.
- * The latest filtered value is placed in a queue (size 1, overwritten).
- *
- * @param handle Load cell instance.
- * @return ESP_OK on success, error code otherwise.
- */
-esp_err_t loadcell_driver_start_sampling(loadcell_handle_t handle);
-
-/**
- * @brief Stop continuous sampling.
- *
- * @param handle Load cell instance.
- * @return ESP_OK on success.
- */
-esp_err_t loadcell_driver_stop_sampling(loadcell_handle_t handle);
-
-/**
- * @brief Get the latest filtered force value (non‑blocking).
- *
- * @param handle Load cell instance.
- * @param[out] newtons Latest force in newtons.
- * @return ESP_OK on success, ESP_ERR_TIMEOUT if no new data available.
- */
-esp_err_t loadcell_driver_get_latest(loadcell_handle_t handle, float *newtons);
-
-/**
- * @brief Update calibration.
- *
- * Call with known_newtons = 0 to set zero offset.
- * Then apply a known weight and call with known_newtons > 0 to set scale.
- *
- * @param handle Load cell instance.
- * @param known_newtons Known force applied (0 for zero calibration).
- * @return ESP_OK on success.
- */
+esp_err_t loadcell_driver_read(loadcell_handle_t handle, float *newtons);  // blocking
+esp_err_t loadcell_driver_read_filtered(loadcell_handle_t handle, float *newtons); // returns filtered value
 esp_err_t loadcell_driver_calibrate(loadcell_handle_t handle, float known_newtons);
-
-/**
- * @brief Delete a load cell instance and free resources.
- *
- * @param handle Load cell instance.
- * @return ESP_OK on success.
- */
 esp_err_t loadcell_driver_delete(loadcell_handle_t handle);
 
-#ifdef __cplusplus
-}
 #endif
-
-#endif /* LOADCELL_DRIVER_H */
-
-
 
 
 

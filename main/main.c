@@ -176,27 +176,18 @@ void app_main(void)
 
 
 
-
-
-
-/**
- * @file main.c
- * @brief Test HX711 load cell with continuous sampling.
- */
-
 #include <stdio.h>
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "loadcell_driver.h"
 
 static const char *TAG = "LOADCELL_TEST";
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting HX711 load cell test");
-
-    /* Configuration */
     loadcell_config_t cfg = {
         .sample_rate_hz = 80,
         .filter_window_size = 10,
@@ -205,55 +196,34 @@ void app_main(void)
     };
 
     loadcell_handle_t loadcell;
-    esp_err_t ret = loadcell_driver_create(&cfg, &loadcell);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Create failed: %d", ret);
-        return;
-    }
+    ESP_ERROR_CHECK(loadcell_driver_create(&cfg, &loadcell));
 
-    /* Zero calibration */
-    ESP_LOGI(TAG, "Zero calibration...");
-    ret = loadcell_driver_calibrate(loadcell, 0.0f);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Zero calibration failed: %d", ret);
-        loadcell_driver_delete(loadcell);
-        return;
-    }
+    ESP_LOGI(TAG, "Calibrating zero (remove weight)");
+    ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 0.0f));
 
-    /* Scale calibration */
-    ESP_LOGI(TAG, "Place known weight (228g = 2.2367 N) and wait 5 seconds...");
+    ESP_LOGI(TAG, "Place 228g weight (2.2367 N) and wait 5 seconds");
     vTaskDelay(pdMS_TO_TICKS(5000));
-    ret = loadcell_driver_calibrate(loadcell, 2.2367f);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Scale calibration failed: %d", ret);
-        loadcell_driver_delete(loadcell);
-        return;
-    }
+    ESP_ERROR_CHECK(loadcell_driver_calibrate(loadcell, 2.2367f));
 
-    /* Start continuous sampling */
-    ret = loadcell_driver_start_sampling(loadcell);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start sampling: %d", ret);
-        loadcell_driver_delete(loadcell);
-        return;
-    }
+    ESP_LOGI(TAG, "Reading at 80 Hz...");
+    int64_t last_print = esp_timer_get_time();
+    uint32_t count = 0;
 
-    /* Allow first sample to be taken */
-    vTaskDelay(pdMS_TO_TICKS(200));
-
-    /* Main loop – read and print at a comfortable rate */
     while (1) {
         float force;
-        ret = loadcell_driver_get_latest(loadcell, &force);
-        if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "Force: %.3f N", force);
-        } else {
-            ESP_LOGD(TAG, "No new data yet");
+        if (loadcell_driver_read_filtered(loadcell, &force) == ESP_OK) {
+            count++;
+            int64_t now = esp_timer_get_time();
+            if (now - last_print >= 10000) {
+                float rate = (float)count * 10000.0f / (now - last_print);
+                ESP_LOGI(TAG, "Rate: %.1f Hz, Force: %.3f N", rate, force);
+                count = 0;
+                last_print = now;
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));  /* Print 10 times per second */
+        vTaskDelay(pdMS_TO_TICKS(1)); // ~1ms, enough to achieve 80 Hz
     }
 }
-
 
 
 
