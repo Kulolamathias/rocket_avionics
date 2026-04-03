@@ -25,8 +25,8 @@
 
 static const char *TAG = "MPU_SVC";
 
-/* IMU MQTT publish rate (Hz) */
-#define IMU_PUBLISH_RATE_HZ  10
+#define MPU_SAMPLE_RATE_HZ  200          /* 200 Hz sensor updates */
+#define IMU_PUBLISH_RATE_HZ  20          /* Desired MQTT publish rate */
 #define PUBLISH_DIVIDER (MPU_SAMPLE_RATE_HZ / IMU_PUBLISH_RATE_HZ)
 
 /* Ensuring divider is at least 1 */
@@ -43,7 +43,6 @@ static const char *TAG = "MPU_SVC";
 #define MPU_I2C_ADDR        0x68
 #define MPU_SDA_PIN         8
 #define MPU_SCL_PIN         9
-#define MPU_SAMPLE_RATE_HZ  200          /* 200 Hz sensor updates */
 
 #define ENABLE_MAGNETOMETER true
 #define CALIBRATION_DURATION_MS 5000

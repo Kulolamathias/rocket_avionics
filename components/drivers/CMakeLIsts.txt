@@ -2,16 +2,21 @@ idf_component_register(
     SRCS
         "comm/wifi/wifi_driver_abstraction.c"
         "comm/mqtt/mqtt_client_abstraction.c"
+
         "sensors/imu/mpu_driver/mpu_driver.c"
+        "sensors/loadcell_driver/loadcell_driver.c"
 
     INCLUDE_DIRS
         "comm/wifi"
         "comm/mqtt"
+
         "sensors/imu/mpu_driver"
+        "sensors/loadcell_driver"
     
     REQUIRES
         esp_netif
         esp_wifi
+        esp_adc
         mqtt
         driver
 )
