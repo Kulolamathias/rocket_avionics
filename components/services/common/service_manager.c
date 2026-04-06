@@ -29,9 +29,12 @@
 
 #include "loadcell_service.h"
 #include "mpu_service.h"
+// #include "camera_service.h"
 
 #include "mqtt_service.h"
 #include "wifi_service.h"
+#include "rocket_discovery_service.h"
+#include "rocket_command_service.h"
 #include "logging_service.h"
 
 static const char *TAG = "SERVICE_MGR";
@@ -71,11 +74,35 @@ static const service_entry_t g_services[] = {
         .start = mqtt_service_start
     },
     {
+        .name = "rocket_discovery",
+        .init = rocket_discovery_service_init,
+        .register_handlers = rocket_discovery_service_register_handlers,
+        .start = rocket_discovery_service_start
+    },
+    {
+        .name = "rocket_command",
+        .init = rocket_command_service_init,
+        .register_handlers = rocket_command_service_register_handlers,
+        .start = rocket_command_service_start
+    },
+    {
         .name = "logging",
         .init = logging_service_init,
         .register_handlers = logging_service_register_handlers,
         .start = logging_service_start
     },
+    // {
+    //     .name = "telemetry",
+    //     .init = telemetry_service_init,
+    //     .register_handlers = telemetry_service_register_handlers,
+    //     .start = telemetry_service_start
+    // },
+    // {
+    //     .name = "camera",
+    //     .init = camera_service_init,
+    //     .register_handlers = camera_service_register_handlers,
+    //     .start = camera_service_start
+    // },
     {
         .name = "mpu",
         .init = mpu_service_init,
@@ -88,12 +115,6 @@ static const service_entry_t g_services[] = {
         .register_handlers = loadcell_service_register_handlers,
         .start = loadcell_service_start
     }
-    // {
-    //     .name = "telemetry",
-    //     .init = telemetry_service_init,
-    //     .register_handlers = telemetry_service_register_handlers,
-    //     .start = telemetry_service_start
-    // },
     // {
     //     .name = "control",
     //     .init = control_service_init,

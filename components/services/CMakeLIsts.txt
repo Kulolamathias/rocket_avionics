@@ -5,9 +5,14 @@ idf_component_register(
         "sensing/loadcell_service/loadcell_service.c"
         "sensing/imu_service/mpu_service/mpu_service.c"
 
+        "payload/camera_service/camera_service.c"
+
         "connectivity/wifi/wifi_service.c"
         "connectivity/mqtt/mqtt_service.c"
         "connectivity/mqtt/mqtt_topic.c"
+
+        "communication/rocket_discovery_service/rocket_discovery_service.c"
+        "communication/rocket_command_services/rocket_command_service.c"
 
         "logging/logging_service.c"
 
@@ -17,8 +22,13 @@ idf_component_register(
         "sensing/loadcell_service"
         "sensing/imu_service/mpu_service"
 
+        "payload/camera_service"
+
         "connectivity/wifi"
         "connectivity/mqtt"
+
+        "communication/rocket_discovery_service"
+        "communication/rocket_command_services"
 
         "logging"
 
@@ -28,4 +38,6 @@ idf_component_register(
         esp_timer
         efuse
         json
+        esp_http_client
+        esp_http_server
 )

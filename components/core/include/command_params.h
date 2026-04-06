@@ -47,6 +47,42 @@ extern "C" {
  * COMMAND PARAMETER STRUCTURES
  * ============================================================ */
 
+/* Command parameters for rocket commands */
+typedef struct {
+    bool enable;                /**< For ignition: true = start engine */
+} ignition_params_t;
+
+typedef struct {
+    bool deploy;                /**< For parachute: true = deploy */
+} parachute_params_t;
+
+typedef struct {
+    bool armed;                 /**< For explode: true = arm destruct */
+    char code[16];              /**< Authentication code */
+} explode_params_t;
+
+typedef struct {
+    char param[32];             /**< Parameter name */
+    char value[64];             /**< Parameter value */
+} config_update_params_t;
+
+typedef struct {
+    char sensor_name[16];       /**< "loadcell", "imu", etc. */
+    char action[16];            /**< "zero" or "scale" */
+    float value;                /**< For scale: known mass (kg) or force (N) */
+} calibrate_params_t;
+
+typedef struct {
+    char group[16];             /**< Data group (imu, kinematics, etc.) */
+    uint32_t rate_hz;           /**< Desired rate in Hz */
+} telemetry_rate_params_t;
+
+typedef struct {
+    char topic[128];
+    uint8_t payload[512];
+    size_t payload_len;
+} web_command_params_t;
+
 /**
  * @brief Quaternion orientation (primary for gimbal control).
  */
@@ -84,18 +120,21 @@ typedef struct
     uint32_t sampling_rate_hz;  /**< Sampling rate in Hz */
 } logging_config_params_t;
 
+/* Camera command parameters */
+typedef struct {
+    uint8_t framesize;          /**< camera_framesize_t value */
+} camera_resolution_params_t;
+
+typedef struct {
+    uint8_t quality;            /**< JPEG quality (0‑63) */
+} camera_quality_params_t;
+
 /**
  * @brief Timer start parameters.
  */
 typedef struct {
     uint32_t timeout_ms;            /**< Timer duration in milliseconds */
 } cmd_start_timer_params_t;
-
-typedef struct {
-    char sensor_name[16];       /**< "loadcell", "imu", etc. */
-    char action[16];            /**< "zero" or "scale" */
-    float value;                /**< For scale: known mass (kg) or force (N) */
-} calibrate_params_t;
 
 /* ============================================================
  * WiFi command parameters
@@ -195,9 +234,17 @@ typedef struct {
  */
 typedef union
 {
+    ignition_params_t               ignition;
+    parachute_params_t              parachute;
+    explode_params_t                explode;
+    config_update_params_t          config_update;
+    calibrate_params_t              calibrate;
+    telemetry_rate_params_t         telemetry_rate;
+    web_command_params_t            web_cmd;
     gimbal_orientation_params_t     gimbal_orientation;
     gimbal_angles_params_t          gimbal_angles;
-    calibrate_params_t              calibrate;
+    camera_resolution_params_t      camera_resolution;
+    camera_quality_params_t         camera_quality;
     telemetry_config_params_t       telemetry_config;
     logging_config_params_t         logging_config;
     cmd_start_timer_params_t        timer;
@@ -208,9 +255,9 @@ typedef union
     cmd_publish_mqtt_params_t       publish_mqtt;
     cmd_subscribe_mqtt_params_t     subscribe_mqtt;
     cmd_unsubscribe_mqtt_params_t   unsubscribe_mqtt;
-    uint32_t                        status_value;      /**< Generic status/value field for simple commands */
+    uint32_t                        status_value;           /**< Generic status/value field for simple commands */
     uint32_t                        ultrasonic_interval_ms; /**< For COMMAND_START_ULTRASONIC_READING (optional) */
-    log_message_params_t log_message;   /**< For COMMAND_LOG_MESSAGE */
+    log_message_params_t            log_message;            /**< For COMMAND_LOG_MESSAGE */
 } command_param_union_t;
 
 #ifdef __cplusplus

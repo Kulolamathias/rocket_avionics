@@ -53,6 +53,14 @@ typedef enum
     COMMAND_SYSTEM_DISARM,          /**< Disarm system */
     COMMAND_ABORT_MISSION,          /**< Immediate mission abort */
 
+    /* Rocket commands */
+    COMMAND_IGNITION,               /**< Start engine / launch sequence */
+    COMMAND_EXPLODE,                /**< Safety destruct (requires auth) */
+    COMMAND_UPDATE_CONFIG,          /**< Update flight parameters */
+    COMMAND_CALIBRATE_SENSOR,       /**< Calibrate a sensor (params: calibrate_params_t) */
+    COMMAND_SET_TELEMETRY_RATE,     /**< Change telemetry rate */
+    COMMAND_PROCESS_ROCKET_COMMAND, /**< Process incoming MQTT command for rocket */
+
     /* --------------------------------------------------------
      * Flight control (gimbal / TVC) – Quaternion primary
      * -------------------------------------------------------- */
@@ -94,6 +102,7 @@ typedef enum
     COMMAND_SUBSCRIBE_MQTT,         /**< Subscribe to a topic */
     COMMAND_UNSUBSCRIBE_MQTT,       /**< Unsubscribe from a topic */
     COMMAND_MQTT_SET_WIFI_STATE,    /**< Inform MQTT service about WiFi state */
+    COMMAND_NOTIFY_MQTT_CONNECTED,  /**< Notify services that MQTT is connected (params: status_value) */
 
     /* --------------------------------------------------------
      * GPS commands
@@ -110,7 +119,15 @@ typedef enum
     COMMAND_LOADCELL_CALIBRATE_ZERO,    /*< Calibrate zero point */
     COMMAND_LOADCELL_CALIBRATE_SCALE,   /*< Calibrate scale */
     COMMAND_LOADCELL_GET_LAST,          /*< Get last measured value */
-    COMMAND_CALIBRATE_SENSOR,           /*< Calibrate a sensor (params: calibrate_params_t) */
+
+    /* --------------------------------------------------------
+     * Camera commands
+     * -------------------------------------------------------- */
+    COMMAND_CAMERA_START_STREAM,
+    COMMAND_CAMERA_STOP_STREAM,
+    COMMAND_CAMERA_CAPTURE,
+    COMMAND_CAMERA_SET_RESOLUTION,
+    COMMAND_CAMERA_SET_QUALITY,
 
     /* --------------------------------------------------------
      * Timer services

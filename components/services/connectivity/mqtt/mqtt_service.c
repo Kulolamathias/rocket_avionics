@@ -464,7 +464,7 @@ static void process_client_event(const client_event_msg_t *evt)
             break;
 
         case MQTT_CLIENT_EVENT_DISCONNECTED:
-            emit_event(EVENT_MQTT_DISCONNECTED, &evt->data.error_code);
+            emit_event(EVENT_MQTT_DISCONNECTED, (void*)&evt->data.error_code);
             if (s_ctx.user_disconnect) {
                 s_ctx.user_disconnect = false;
                 set_state(MQTT_STATE_IDLE);

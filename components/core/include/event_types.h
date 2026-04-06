@@ -87,6 +87,8 @@ typedef enum
      * -------------------------------------------------------- */
     EVENT_LOADCELL_DATA,          /**< Load cell measurement (force in newtons) */
 
+    EVENT_CAMERA_IMAGE_CAPTURED,
+
     /* --------------------------------------------------------
      * WiFi events
      * -------------------------------------------------------- */
@@ -307,6 +309,10 @@ typedef struct {
     data_validity_t validity;       /**< Validity flag */
 } ultrasonic_data_t;
 
+typedef struct {
+    char url[128];              /**< URL of captured image */
+} camera_image_data_t;
+
 
 /* ============================================================
  * MAIN EVENT STRUCTURE (TAGGED UNION)
@@ -340,6 +346,8 @@ typedef struct
         temperature_update_t temperature;
 
         loadcell_data_t loadcell;
+
+        camera_image_data_t camera_image;
 
         /* GPS */
         gps_data_t gps;

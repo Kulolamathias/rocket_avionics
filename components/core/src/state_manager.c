@@ -100,6 +100,15 @@ typedef struct {
  * PARAMETER PREPARERS – COMMAND DATA PACKING
  * ============================================================ */
 
+static void prepare_status_value_one(const system_context_t *ctx,
+                                     const event_t *event,
+                                     void *params_out)
+{
+    (void)ctx; (void)event;
+    uint32_t *p = params_out;
+    *p = 1;
+}
+
 /**
  * @brief Prepare gimbal quaternion command parameters.
  *
@@ -344,6 +353,19 @@ static const state_transition_rule_t g_transition_table[] =
             .count = 1
         }
     },
+    /* --------------------------------------------------------
+     * ANY STATE → ANY STATE (notify discovery service on MQTT connect)
+     * -------------------------------------------------------- */
+    {
+        .current_state = SYSTEM_STATE_ANY,
+        .event_id      = EVENT_MQTT_CONNECTED,
+        .condition     = NULL,
+        .next_state    = SYSTEM_STATE_ANY,
+        .command_batch = { 
+            .commands = { { COMMAND_NOTIFY_MQTT_CONNECTED, prepare_status_value_one } },
+            .count = 1
+        }
+    },
 };
 
 #define TRANSITION_TABLE_SIZE (sizeof(g_transition_table) / sizeof(g_transition_table[0]))
@@ -452,25 +474,24 @@ esp_err_t state_manager_process_event(const event_t *event)
                 (int)event->data.mqtt_message.payload_len, event->data.mqtt_message.payload);
 
         /* --------------------------------------------------------
-        * Handle calibration commands via MQTT, IF ANY..
-        * -------------------------------------------------------- */
+         * Handle calibration commands via MQTT (special case)
+         * -------------------------------------------------------- */
         const system_context_t *ctx = system_context_get();
         char expected_topic[128];
         snprintf(expected_topic, sizeof(expected_topic), "rocket/%s/cmd/calibrate", ctx->mac_str);
         if (strcmp(event->data.mqtt_message.topic, expected_topic) == 0) {
-            /* Parse JSON payload */
             cJSON *root = cJSON_ParseWithLength((const char*)event->data.mqtt_message.payload,
                                                 event->data.mqtt_message.payload_len);
             if (root) {
-                cJSON *sensor = cJSON_GetObjectItem(root, "sensor");
+                cJSON *sensor_name = cJSON_GetObjectItem(root, "sensor_name");
                 cJSON *action = cJSON_GetObjectItem(root, "action");
-                cJSON *mass_kg = cJSON_GetObjectItem(root, "mass_kg");
-                if (sensor && action && cJSON_IsString(sensor) && cJSON_IsString(action)) {
-                                        calibrate_params_t params;
-                    strlcpy(params.sensor_name, sensor->valuestring, sizeof(params.sensor_name));
+                cJSON *value = cJSON_GetObjectItem(root, "value");
+                if (sensor_name && cJSON_IsString(sensor_name) &&
+                    action && cJSON_IsString(action)) {
+                    calibrate_params_t params;
+                    strlcpy(params.sensor_name, sensor_name->valuestring, sizeof(params.sensor_name));
                     strlcpy(params.action, action->valuestring, sizeof(params.action));
-                    params.value = (mass_kg && cJSON_IsNumber(mass_kg)) ? (float)mass_kg->valuedouble : 0.0f;
-
+                    params.value = (value && cJSON_IsNumber(value)) ? (float)value->valuedouble : 0.0f;
                     command_param_union_t cmd_params;
                     memset(&cmd_params, 0, sizeof(cmd_params));
                     memcpy(&cmd_params.calibrate, &params, sizeof(calibrate_params_t));
@@ -481,6 +502,32 @@ esp_err_t state_manager_process_event(const event_t *event)
             /* Consume the event (no further processing) */
             return ESP_OK;
         }
+
+                /* --------------------------------------------------------
+         * Forward all other rocket commands to the rocket command service
+         * -------------------------------------------------------- */
+        command_param_union_t cmd_params;
+        memset(&cmd_params, 0, sizeof(cmd_params));
+        web_command_params_t *web = &cmd_params.web_cmd;
+        strlcpy(web->topic, event->data.mqtt_message.topic, sizeof(web->topic));
+        size_t copy_len = event->data.mqtt_message.payload_len;
+        if (copy_len > sizeof(web->payload)) copy_len = sizeof(web->payload);
+        memcpy(web->payload, event->data.mqtt_message.payload, copy_len);
+        web->payload_len = copy_len;
+        command_router_execute(COMMAND_PROCESS_ROCKET_COMMAND, &cmd_params);
+
+        /* Do not process further (no transition) */
+        return ESP_OK;
+    }
+
+        /* --------------------------------------------------------
+     * Notify discovery service when MQTT connects
+     * -------------------------------------------------------- */
+    if (event->id == EVENT_MQTT_CONNECTED) {
+        command_param_union_t params;
+        memset(&params, 0, sizeof(params));
+        params.status_value = 1;
+        command_router_execute(COMMAND_NOTIFY_MQTT_CONNECTED, &params);
     }
 
     /* No transition matched – ignore event */

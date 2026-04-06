@@ -84,6 +84,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 break;
             case WIFI_EVENT_STA_DISCONNECTED: {
                 wifi_event_sta_disconnected_t *disc = (wifi_event_sta_disconnected_t *)event_data;
+                ESP_LOGE(TAG, "Disconnected, reason=%d", disc->reason);
                 cb(WIFI_DRIVER_EVENT_DISCONNECTED, &disc->reason);
                 break;
             }
