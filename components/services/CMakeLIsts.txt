@@ -5,6 +5,8 @@ idf_component_register(
         "sensing/loadcell_service/loadcell_service.c"
         "sensing/imu_service/mpu_service/mpu_service.c"
 
+        "actuation/ignition_relay_service/ignition_relay_service.c"
+
         "payload/camera_service/camera_service.c"
 
         "connectivity/wifi/wifi_service.c"
@@ -21,6 +23,8 @@ idf_component_register(
         
         "sensing/loadcell_service"
         "sensing/imu_service/mpu_service"
+
+        "actuation/ignition_relay_service"
 
         "payload/camera_service"
 

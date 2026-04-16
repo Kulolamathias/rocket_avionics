@@ -39,6 +39,9 @@
 #include "cJSON.h"
 #include <string.h>
 
+#include "ignition_relay_service.h"
+#include "driver/gpio.h"
+
 static const char *TAG = "StateManager";
 
 #define MAX_COMMANDS_PER_TRANSITION 6
@@ -99,6 +102,18 @@ typedef struct {
 /* ============================================================
  * PARAMETER PREPARERS – COMMAND DATA PACKING
  * ============================================================ */
+
+ static void prepare_log_ignition(const system_context_t *ctx,
+                                 const event_t *event,
+                                 void *params_out)
+{
+    (void)ctx; (void)event;
+    log_message_params_t *p = params_out;
+    p->level = 1; /* info */
+    snprintf(p->message, sizeof(p->message), "Engine ignited (from ignition relay service)");
+
+    // gpio_set_level(IGNITION_RELAY_GPIO, !RELAY_ACTIVE_LEVEL);
+}
 
 static void prepare_status_value_one(const system_context_t *ctx,
                                      const event_t *event,
@@ -318,18 +333,6 @@ static const state_transition_rule_t g_transition_table[] =
             .count = 2
         }
     },
-    {
-        .current_state = SYSTEM_STATE_ANY,
-        .event_id = EVENT_NETWORK_MESSAGE_RECEIVED,
-        .condition = NULL,
-        .next_state = SYSTEM_STATE_ANY,
-        .command_batch = {
-            .commands = {
-                { COMMAND_LOG_MESSAGE, prepare_log_mqtt_message }
-            },
-            .count = 1
-        }
-    },
         /* ANY STATE → ANY STATE (trigger ultrasonic read on periodic timer) */
     {
         .current_state = SYSTEM_STATE_ANY,
@@ -363,6 +366,20 @@ static const state_transition_rule_t g_transition_table[] =
         .next_state    = SYSTEM_STATE_ANY,
         .command_batch = { 
             .commands = { { COMMAND_NOTIFY_MQTT_CONNECTED, prepare_status_value_one } },
+            .count = 1
+        }
+    },
+        /* --------------------------------------------------------
+     * ANY STATE → ANY STATE (log engine ignition – temporary)
+     * -------------------------------------------------------- */
+    {
+        .current_state = SYSTEM_STATE_ANY,
+        .event_id      = EVENT_ENGINE_IGNITED,
+        .condition     = NULL,
+        .next_state    = SYSTEM_STATE_ANY,
+        .command_batch = {
+
+            .commands = { { COMMAND_LOG_MESSAGE, prepare_log_ignition } },
             .count = 1
         }
     },
@@ -418,7 +435,6 @@ esp_err_t state_manager_init(const system_context_t *initial_context)
 /* ============================================================
  * PUBLIC API: EVENT PROCESSING
  * ============================================================ */
-
 esp_err_t state_manager_process_event(const event_t *event)
 {
     ESP_LOGI(TAG, "Processing event %d", event->id);
@@ -468,44 +484,16 @@ esp_err_t state_manager_process_event(const event_t *event)
         return ESP_OK;
     }
 
+    /* --------------------------------------------------------
+     * No transition matched – handle special events that don't cause state changes
+     * -------------------------------------------------------- */
+
+    /* Forward ALL MQTT messages to the rocket command service */
     if (event->id == EVENT_NETWORK_MESSAGE_RECEIVED) {
-        ESP_LOGI(TAG, "MQTT received: \n\t topic=%.*s, \n\t payload=%.*s",
+        ESP_LOGI(TAG, "MQTT received: topic=%.*s, payload=%.*s",
                 (int)strlen(event->data.mqtt_message.topic), event->data.mqtt_message.topic,
                 (int)event->data.mqtt_message.payload_len, event->data.mqtt_message.payload);
 
-        /* --------------------------------------------------------
-         * Handle calibration commands via MQTT (special case)
-         * -------------------------------------------------------- */
-        const system_context_t *ctx = system_context_get();
-        char expected_topic[128];
-        snprintf(expected_topic, sizeof(expected_topic), "rocket/%s/cmd/calibrate", ctx->mac_str);
-        if (strcmp(event->data.mqtt_message.topic, expected_topic) == 0) {
-            cJSON *root = cJSON_ParseWithLength((const char*)event->data.mqtt_message.payload,
-                                                event->data.mqtt_message.payload_len);
-            if (root) {
-                cJSON *sensor_name = cJSON_GetObjectItem(root, "sensor_name");
-                cJSON *action = cJSON_GetObjectItem(root, "action");
-                cJSON *value = cJSON_GetObjectItem(root, "value");
-                if (sensor_name && cJSON_IsString(sensor_name) &&
-                    action && cJSON_IsString(action)) {
-                    calibrate_params_t params;
-                    strlcpy(params.sensor_name, sensor_name->valuestring, sizeof(params.sensor_name));
-                    strlcpy(params.action, action->valuestring, sizeof(params.action));
-                    params.value = (value && cJSON_IsNumber(value)) ? (float)value->valuedouble : 0.0f;
-                    command_param_union_t cmd_params;
-                    memset(&cmd_params, 0, sizeof(cmd_params));
-                    memcpy(&cmd_params.calibrate, &params, sizeof(calibrate_params_t));
-                    command_router_execute(COMMAND_CALIBRATE_SENSOR, &cmd_params);
-                }
-                cJSON_Delete(root);
-            }
-            /* Consume the event (no further processing) */
-            return ESP_OK;
-        }
-
-                /* --------------------------------------------------------
-         * Forward all other rocket commands to the rocket command service
-         * -------------------------------------------------------- */
         command_param_union_t cmd_params;
         memset(&cmd_params, 0, sizeof(cmd_params));
         web_command_params_t *web = &cmd_params.web_cmd;
@@ -516,18 +504,16 @@ esp_err_t state_manager_process_event(const event_t *event)
         web->payload_len = copy_len;
         command_router_execute(COMMAND_PROCESS_ROCKET_COMMAND, &cmd_params);
 
-        /* Do not process further (no transition) */
         return ESP_OK;
     }
 
-        /* --------------------------------------------------------
-     * Notify discovery service when MQTT connects
-     * -------------------------------------------------------- */
+    /* Notify discovery service when MQTT connects */
     if (event->id == EVENT_MQTT_CONNECTED) {
         command_param_union_t params;
         memset(&params, 0, sizeof(params));
         params.status_value = 1;
         command_router_execute(COMMAND_NOTIFY_MQTT_CONNECTED, &params);
+        return ESP_OK;
     }
 
     /* No transition matched – ignore event */

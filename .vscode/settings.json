@@ -1,8 +1,8 @@
 {
-    "cmake.sourceDirectory": "C:/engRel/rocket/rocket_model/components/core",
+    "cmake.sourceDirectory": "C:/engRel/rCeT/rocket_avionics",
     "idf.currentSetup": "C:/Espressif/frameworks/esp-idf-v5.4.2/",
     "idf.flashType": "UART",
-    "idf.portWin": "COM13",
+    "idf.portWin": "COM11",
     "idf.openOcdConfigs": [
         "board/esp32s3-builtin.cfg"
     ],

@@ -89,6 +89,8 @@ typedef enum
 
     EVENT_CAMERA_IMAGE_CAPTURED,
 
+    EVENT_ENGINE_IGNITED,   /**< Engine ignition started (payload: none) */
+
     /* --------------------------------------------------------
      * WiFi events
      * -------------------------------------------------------- */

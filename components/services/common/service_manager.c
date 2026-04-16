@@ -29,6 +29,7 @@
 
 #include "loadcell_service.h"
 #include "mpu_service.h"
+#include "ignition_relay_service.h"
 // #include "camera_service.h"
 
 #include "mqtt_service.h"
@@ -84,6 +85,12 @@ static const service_entry_t g_services[] = {
         .init = rocket_command_service_init,
         .register_handlers = rocket_command_service_register_handlers,
         .start = rocket_command_service_start
+    },
+    {
+        .name = "ignition_relay",
+        .init = ignition_relay_service_init,
+        .register_handlers = ignition_relay_service_register_handlers,
+        .start = ignition_relay_service_start
     },
     {
         .name = "logging",
